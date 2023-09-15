@@ -1,0 +1,142 @@
+> Import all the assets in the assets section and create 3 game objects, player, enemy and background. In player, select any one from the PNG folder and drag that sprite under the player as its child, any enemy sprite as its child in enemy and select the starfield sprite of background as its child in the background.
+
+> Now go to the player game object, which is the parent object 'Player' and add component of input system and in that component click on create actions. Now in the project settings, go to input system package and click on create input asset. Now create a c# script named Player. Add this script in this gameObject.
+
+> In the script, remove Start method and create OnMove method which takes an InputValue of name value. Create a variable of type Vector2 and in the OnMove method write value.Get<Vector2>(); and Debug.Log(rawInput);
+This means that the value takes the input from rawInput of type Vector2 and the debug.log will show the same.
+
+> Create a Vector3 (not Vector2) variable in the Update method and name it as 'delta' and equal it to rawInput. Also write transform.position += delta; Make a serialized field of type float and name it moveSpeed and multiply the rawInput in delta variable with moveSpeed and Time.deltaTime to regulate the movement of the player and that its frame-rate remains constant in any device.
+
+> Now make 2 Vector2 variables named minBounds and maxBounds. Create a method called InitBounds which restricts the player movement within the scene of the camera. Create a variable of type Camera named mainCamera and equal it to Camera.main; Also write:
+minBounds = mainCamera.ViewportToWorldPoint(new Vector2(0, 0));
+maxBounds = mainCamera.ViewportToWorldPoint(new Vector2(1, 1));
+This means that the minimum boundry of the player will be as seen from the device which is (0, 0) and maximum boundry will be (1, 1) which are the bottom left to top right corners of the screen.
+
+> Cut everything we wrote in the update method and paste it in a new method and name it Move and call this method in the update method. In the move method, create a new vector2 variable and clamp its x and y positons to the x and y of the screen.
+->newPos.x = Mathf.Clamp(transform.position.x + delta.x, minBounds.x, maxBounds.x);
+->newPos.y = Mathf.Clamp(transform.position.y + delta.y, minBounds.y, maxBounds.y);
+->transform.position = newPos;
+
+Here Mathf.Clamp restricts the movement. It takes a floating point value for the minimum and maximum position.
+
+> Now create 2 empty gameObjects named Path 0 and Waypoint(0). Make waypoint 0 as a child of path(0) and make path a prefab. Click on the cube on the side of the name of the field where we write the name of the object and select yellow diamond. Now create 4 more waypoints by ctrl + D and set them as you want the enemy ships to move across the scene.
+
+> Create a new c# script and name it WaveConfigSO and in it write ScriptableObject instead of Monobehaviour. Create 2 serialize field, one with type transform and name pathPrefab and other of type float and name it moveSpeed. Write a public method of return type Transform and name it GetStraightWaypoint which returns the pathPrefab.GetChild(0) which returns the child of index 0 of the path prefab.
+
+>The another public method which returns a list of transform objects and name it GetWaypoints(). Create the List<Transform> waypoints = new List<Transform>(). Initiate a foreach loop and write:
+foreach(Transform child in pathPrefab)
+{
+waypoints.Add(child)
+}
+return waypoints;
+This means that each child of the path prefab is added as a waypoint in the list of type transform.
+
+> Create a c# script named PathFinder. In there create a serialize field of type WaveConfigSO script as it is scriptable object and name it waveConfig. Create a list of type transform and name it waypoints and an int of name waypointIndex = 0
+
+> In the start method, equal the list waypoints to waveConfig.GetWaypoints(); and transform.position to waypoints[waypointIndex].position;
+This means that the order of children of the waypoints created in the GetWaypoints method of WaveConfigSO script is stored as a child in the list waypoints and the position of that enemy plane is set in the position of each waypoint in the list as per the index of  waypoint.
+
+> In the update method call a method of name FollowPath().Create this method below and in it write that if the index of waypoint (waypointIndex) is less than number of total waypoints (waypoints.Count which is the length of the list), then create a Vector3 variable of name targetPosition and equal it to the position of the waypoints[waypointIndex]. Also create a float type variable delta and equal it to the GetMoveSpeed method of the waveConfigSO script and multipy it with Time.deltaTime.
+
+> Now equal the position of transform to a Vector2.MoveTowards which means that the enemy will move from transform.position to its targetPosition which is the position of the next waypoint with speed delta. If the enemy reaches the target position i.e. if(transform.position == targetPosition) then the index of waypoint will increase by one. And if waypointIndex >= waypoint.Count then Destroy(gameObject).
+
+> Now in the WaveConfigSO script, create 2 public methods, one returns int type enemyPrefab.Count and name this method GetEnemyCount() and the other method is of type GameObject which takes an index as input and name it GetEnemyPrefab(int index). It returns enemyPrefab[index].
+
+> Create a new script name EnemySpawner and remive the update method. Make a serialized field of type WaveConfigSO and name it currentWave. In the Start method call the SpawnEnemies method. Create this method of type void and in it instantiate the enemies. So write:
+Instantiate(currentWave.GetEnemyPrefab(0), currentWave.GetStartingWaypoint().position, Quaternion.identity);
+This means it takes the existing object you want to make copy of, position of new object and orientation of the same.
+
+> Also create a public WaveConfigSO type method and name it GetCurrentWave which just returns currentWave. Now go in PathFinder script and make the eariler serialized field waveConfig private i.e. just remove SerializeField. Also add a variable of EnemySpawner type and name it enemySpawner. Make a void Awake method and in it equal the enemySpawner to FindObjectOfType<EnemySpawner>() and in the Start method, equal waveConfig to enemySpawner.GetCurrentWave().
+
+> Now in theEnemySpawner script in the SpawnEnemies method, make a for loop which goes from i=0 to i<currentWave.GetEnemyCount() and put the Instantiate function in the loop and change the 0 to i and also add a 4th parameter in Instantiate after Quad.identity i.e. Quad..identity, transform. After instantiate write, yield return new WaitForSeconds(currentWave.GetRandomSpawnTime());
+
+> Now create 2 Serialized fields, one of WaveConfigSO type named currentWave and another a List of the same and name waveConfigs. Also create a serialized field of type float and name it timeBetweenWaves. In the start method write StartCoroutines(...) and put the SpawnEnemies in the bracket. Also instead of void write IEnumerator in front of SpawnEnemies method. In this method cut the whole content and create a foreach loop and write:
+foreach(WaveConfigSO wave in waveConfigs)
+{
+currentWave = wave;
+...The earlier content of the method...
+yield return new WaitForSeconds(timeBetweenWaves)
+}
+
+> Now create a bool function named isLooping and make it a serialized field. Make a do while loop and put the entire spawnEnemyWaves method in this loop and in the while condition just write isLooping.
+
+> Now select both the player and the enemy prefabs and add rigidbody and circle colliders to them and mark the colliders as Is Trigger. Make 2 scripts named Health and DamageDealer. Add the Health script to both the prefabs.
+
+> In the DamageDealer script make a serialized field named damage of type int and set its value to 10. Make a public GetDamage method which just returns damage. Also create a public void method named Hit and write Destroy(gameObject).
+
+> In the Health script, make a serialized field named health of type int and set it to 50. Make a OnTriggerEnter method and in there make a variable of type DamageDealer and name it damageDealer and equal it to other,GetComponent<DamageDealer>(); This means it takes a reference of the DamageDealer script and gets its component in the 'other' of the trigger.
+
+> Now if(damageDealer != null) [which means if there is some value stored in the damagedealer component] then call the TakeDamage method which accesses the public mehtod of damageDealer script named GetDamage and also call the Hit method of the damage dealer script. Write the TakeDamage method of return type void which takes an int as input named damage which we created earlier. In this method, write:
+health -= damage; and then make a condition that if(health <= 0) then Destroy(gameObject).
+
+> Now add a new game object and name it projectile. Add a laser of your choice as a child in the game object. Add a rigid body and capsule collider to the projectile object. Also add the damage dealer script to the projectile. Prefab this and name it as player projectile. Make a copy of this and name it as enemy projectile and change the color of the laser. Add 2 new layer at the top namely player and enemy and in the physics 2d, untick the box of player-player and enemy-enemy.
+
+> Now make the sorting layer order of the player and enemy prefabs to 1 and in the input system add a new key binding for fire and press spacebar for firing. Click on fire and change the action type to value instead of button and control type to any.
+
+> Create a new script and name it Shooter and in this script make 3 serialized field namely projectile speed, projectile lifetime and firing rate, also create a public bool named isFiring. In the update method call a method named Fire. make this method with return type void.
+
+> Now make a variable of type Coroutine and name it firingCoroutine. Now in the Fire method make an if condition that if (isFiring and firingCoroutine is null, means if spacebar is pressed and the coroutine is not already running, then make the firingCoroutine variable equal to StartCoroutine(FireContinuously()) else if(!isFiring and firingCoroutine != null) then StopCoroutine(firingCoroutine); firingCoroutine = null;  means, if the button is not pressed and it is already firing then stop the firing.
+
+> Now create the FireContinuously method of type IEnumerator and make an infintiy loop which is a while loop with condition true. In this loop make a game object named instance and equal it to instantiate(projectileprefab, transform.position(which is the position of the player), Quaternion.identity) which means that rotation is null.
+
+> Now get component of rigidbody and get component to instance. Now if(rb2d != null) then rb2d.velocity = transform.up * projectileSpeed. If this condition is false then destroy(instance, projectileLifeTime); yield return new WaitForSeconds(firingRate).
+
+> For attacking at random times create 2 more serialized fields named attackTimeVariance and, minAttackTime and a bool useAI. In start method, make an if condition that if useAI is true then isFiring is true. In the FireContinuously, after destroy, make a float variable named timeToNextProjectile and equal it to Random.Range(firingRate - attackTimeVariance, firingRate + attackTimeVariance);
+Also write timeToNextProjectile = Mathf.Clamp(timeToNextProjectile, minAttackTime, float.MaxValue); and in wait for seconds write timeToNextProjectiles.
+
+> Now create a particle system in the hierarchy. Also import the sprite sheet of the explosion. Create a material from right click and name it m_explosion. Set its shader to particles->standard unlit and change the rendering mode to Additive. In the box on the left of Albed, drag the explosion spritesheet and save it.
+
+>In the particle system, set duration to 0.2, start speed as a curve between 0 and 2, start rotation between 0 and 359,  start lifetime to 0.1 and 0.75, set the shape to circle, enable the color over lifetime, size over lifetime, rotation over lifetime and texture sheet animation as per our requirement. Prefab the particle system and name it as explosion effect.
+
+> Now in the health script write a mew method named PlayHitEffect. In that make a condition, if hitEffect is not null, where hitEffect is a variable of type ParticleSystem as a serialized field. In the condition, make a variable named instance of same variable type and instantiate hitEffect at the position of transform and rotation as identity(Quaternion.identity). Then destroy the gameobject on which the instance is set and we get the duration of the particle system but we also want the lifetime of the system to be added in the total time, so we add that time as follows:
+Destroy(instance.gameObject, instance.main.duration + instance.main.startLifetime.constantMax);
+
+> Now open the player and enemy prefabs and in the health script of each, add the explosion effect prefab.
+
+> Now create a new script named CameraShake. In there make 2 serialized fields of type float, one is shake duration and other is shake magnitude. Also make a Vector3 type variable named initialPosition. In the start method equal initial position to transform.position. Make a public void method named Play and in it Start a Coroutine of method Shake: StartCoroutine(Shake());
+
+> Write the Shake method of type IEnumerator in which make a float variable named elapsedTime = 0; Now start a while loop and continue it till elapsedTime<shakeDuration. If this condition is met then transform.position = initialPosition + (Vector3)Random.insideUnitCircle*shakeMagnitude. Also elapsedTime += Time.deltaTime. yield return new WaitForEndOfFrame()
+and when this condition is false then transform.position = initialPosition. This means that the camera will shake in a circle of radius 1.
+
+> Now we have to add parallax scrolling background. This means the background is split in layers and are moved at different speeds. In this case there is a cloudy layer in our sprite nad other is a black with stars layer.
+
+> Take the 2 layers of background and set the order layer of black background to -2 and that of cloudy to -1. Now right click in background file and go to material. Name it m_background and in it set the shader to unlit->transparent. Add this material in both the layers by dragging it in them and then in both the layers, set the wrap mode to repeat.
+
+> Now add a new game object named Audio player. Also make a new script named AudioPlayer. In there make a header named shooting and make 2 serialized fields in that, one is of type AudioClip and name it shootingClip. Make the other one a float named shootingVolume and set it to 1f. Set its range as: [Range(0f, 1f)]. Copy these 2 and paste them under a new header named damage and in both of these, replace the word shooting with damage.
+
+> Now make a public void method named PlayShootingClip() and in that write PlayClip(shootingClip, shootingVolume) [this is a method that we will create later]. Copy this method and paste it again and change Shooting withDamage. Create a method of type void(not public) and name it PlayClip which takes a AudioClip type variable named clip and float named volume. In this method, if(clip != null) then create a Vector3 variable named cameraPos and equal it to Camera.main.transform.position; and then AudioSource.PlayClipAtPoint(clip, cameraPos, volume).
+
+> Now this is a general method that we can use if we have to add more number of sounds in the game later.
+
+> Now in the Shooter script, create a variable of type AudioPlayer and name it audioPlayer. Create an Awake method and in it write audioPlayer = FindObjectOfType<AudioPlayer>(); In the FireContinuously method just before the yield return, write audioPlayer.PlayShootingClip(); [We called it from the AudioPlayer script when we made it public]. Similarly go to health script and make the variable and awake method procedure and in the TriggerEnter method, write audioPlayer.PlayDamageClip() after PlayHitEffect();
+
+> To add music, go to AudioPlayer game object and add a component named audio source and in the audio clip section drag select the audio you want to add. Also check the play on awake and loop options.
+
+> Now go to hierarchy and add a canvas. In it add a panel from UI section as a child of canvas and drag the top corner to 0.07 on y axis. Now add a child in panel from UI which is a slider and name it health slider. Uncheck the interactable and set the value to 0.5. Also set the background color as per need. In the slider set the left and right to 25 and rest all to 0. Then go to Fill and set the color a bit dark.
+
+> Now add text mesh pro as a child in panel. Give the corners of both to 50-50 of the total panel. In this too set left and right to 25. Set the text color a to a bit purple. Create font atlas from provided texts and add it to the font asset section.
+
+> Now create a new script named UIDisplay. In that import 2 more namespace namely using UnityEngine.UI and TMPro. Make 2 headers named health and score. In health make 2 serialized fields, first of type slider and name it healthSlider and second of type Health and name it playerHealth. In score make one serialized field of type TextMeshProUGUI and name it scoreText and another normal variable of type ScoreKeeper named scoreKeeper.
+
+> In the awake method, equal scoreKeeper to Find object of type ScoreKeeper. In start method, equal healthSlider.maxValue to playerHealth.GetHealth(). In the update method, equal healthSlider.value to plauerHealth.GethHealth and also equal scoreText.text to scoreKeeper.GetScore().ToString("00000000"). This means that the text of scorekeeper is converted to a string array of 9 digits.
+
+> Now create a new scene and in it add canvas, background prefab and audio player and in canvas, add a TMP and name it main menu. In the canvas add 2 buttons one for play and other for quit. Set the font type, underlay, lighting, color, etc as per need. Reduce the tranperancy of the background of the buttons too. Now copy this scene and make the new scene same as this and name it aGameOver and just change the text as per our need.
+
+> Go to file at the top and then in build settings and in that drag the scenes we created and arrange them in the correct order.
+
+> Now create an empty game object and name it LevelManager. Make a script of the same name and in it make a serialized field of name sceneLoadDelay and type float. Make 4 public void methods, LoadGame(), LoadMainMenu(), LoadGameOver() and QuitGame() and also make a WaitAndLoad method of type IEnumerator which takes input of a string which will be the scene name and name it sceneName and the other will be a float named delay.
+
+> In the methods LoadGame and LoadMainMenu, write SceneManager.LoadScene("name of the scene which is the next scene in this case"). In the LoadGameOver method, write StartCoroutine(WaitAndLoad("GameOver"[which is the name of the scene], sceneLoadDelay). In the IEnumerator method write yield return new WaitForSeconds(delay); SceneManager.LoadScene(sceneName);
+
+> Now in the audioPlayer script, make an awake method and in it call a method named ManageSingleton(); We have written this method so that the music does not start from the beginning again when new scene is loaded. In this method we can follow 2 methods:
+(i) create an int datatype and name it instanceCount and equal it to FindObjectsOfType(GetType()).Length; [see that it is Object's' and not Object]. Now if(instanceCount > 1) then gameObject.SetActive(false) and Destroy(gameObject) [we destroyed it because earlier in each scene a new audioplayer object was getting created due to which the music got repeated. So in this method it finds the objects of type audioPlayer and if they are found then destroy] else DontDestroyOnLoad(gameObject) [this means that if there is no audioPlayer object created which will be applicabel only when we start the game, then dont destroy it].
+
+(ii) In second method there is just a minor change, make a variable of type 'static' AudioPlayer and name it instance. Now in the ManageSingleton method, instead of making the new variable and writing the if condition, write directly, if(instance != null) and then put the rest of the mthof as it is and in the else block above DontDestroyOnLoad write instance = this and here this means the gameObject AudioPlayer.
+
+> Now we have to add a new script named UIGameOver to our Canvas of the GameOver scene. In this script we have to serialize a field of type TextMeshProUGUI and name it scoreText and also a reference to the ScoreKeeper script and name it scoreKeeper. Find the object scorekeeper in awake method and in the start method, equal scoreText.text = "You Scored:\n" + scoreKeeper.GetScore();
+
+> In the ScoreKeeper script, copy and paste the whole awake and manageSingleton methods from audio player script and paste it in scoreKeeper script and at the top write static ScoreKeeper instance. Also in the LevelManager script, create the varialble scoreKeeper and in the LoadGame method before LoadScene function, write scoreKeeper.ResetScore() to reset the score before starting the new game.
+
+> This last point for reset score was giving error so just cut the findObject of type from awake and put it in load game.
+
+> To create an application of the game so that the players can download it and play, go to build settings, and in that click on player settings and in that set the resolution of native to uncheck and width*length = 1080*1920. Close that window and click build.
